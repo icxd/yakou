@@ -62,15 +62,13 @@ impl Span {
         self.start_position.line <= line && line <= self.end_position.line
     }
 
-    pub fn offset(&self) -> isize {
+    pub fn offset(&self) -> usize {
         if self.start_position.line != self.end_position.line
             || self.start_position.column > self.end_position.column
         {
-            return -1;
+            return usize::MAX;
         }
 
-        (self.end_position.column - self.start_position.column)
-            .try_into()
-            .unwrap()
+        self.end_position.column - self.start_position.column
     }
 }
