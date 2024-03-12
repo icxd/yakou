@@ -1,12 +1,7 @@
+use super::line::Line;
 use std::{collections::HashMap, path::PathBuf};
 
-use lazy_static::lazy_static;
-
-use super::line::Line;
-
-lazy_static! {
-    pub static ref SOURCE_CACHE: HashMap<PathBuf, Source> = HashMap::new();
-}
+pub static mut SOURCE_CACHE: Option<HashMap<PathBuf, Source>> = None;
 
 #[derive(Debug, Clone)]
 pub struct Source {
