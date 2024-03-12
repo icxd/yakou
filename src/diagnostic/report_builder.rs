@@ -8,11 +8,10 @@ use super::{
 };
 use anstyle::{AnsiColor, Color, Reset, Style};
 use ilog::IntLog;
-use linked_hash_map::LinkedHashMap;
 use rand::Rng;
 use std::{
     cmp::max,
-    collections::LinkedList,
+    collections::HashMap,
     path::{Path, PathBuf},
 };
 
@@ -100,11 +99,13 @@ impl FileReportBuilder {
                 usize::log10(report.common_span.end_position.line) + 1,
             ) as usize;
 
-            let mut occupied_multiline_labels = LinkedHashMap::<Label, bool>::new();
+            let mut occupied_multiline_labels = HashMap::<Label, bool>::new();
             let segment = source.sub_list(
                 report.common_span.start_position.line,
                 report.common_span.end_position.line,
             );
+            dbg!(segment.clone());
+            dbg!(source.clone().lines);
 
             match report.report_type {
                 ReportType::Error => Style::new()
@@ -300,7 +301,7 @@ impl FileReportBuilder {
 
                     writeln!(print_stream, "").unwrap();
 
-                    for j in 1..applied_labels.len() * 2 {
+                    for j in 1..=applied_labels.len() * 2 {
                         self.write_line_number(print_stream, usize::MAX, max_number_of_digit, true);
                         self.write_multi_line_label(
                             print_stream,
@@ -311,7 +312,7 @@ impl FileReportBuilder {
                         );
 
                         inserted_length = 0;
-                        for k in 0..applied_labels.len() {
+                        for k in 0..=applied_labels.len() {
                             let tmp = applied_labels.clone();
                             let label = match tmp.get(k) {
                                 Some(label) => match label {
@@ -407,7 +408,70 @@ impl FileReportBuilder {
                     }
                 }
 
-                // TODO: ended_label
+                if ended_label.is_some() {
+                    self.write_line_number(print_stream, usize::MAX, max_number_of_digit, true);
+                    self.write_multi_line_label(
+                        print_stream,
+                        usize::MAX,
+                        &occupied_multiline_labels,
+                        None,
+                        self.character_set.vertical_bar,
+                    );
+                    writeln!(print_stream, "").unwrap();
+                    self.write_line_number(print_stream, usize::MAX, max_number_of_digit, true);
+                    self.write_multi_line_label(
+                        print_stream,
+                        usize::MAX,
+                        &occupied_multiline_labels,
+                        ended_label.clone(),
+                        self.character_set.vertical_bar,
+                    );
+                    occupied_multiline_labels.insert(ended_label.clone().unwrap(), false);
+                    Style::new()
+                        .fg_color(ended_label.clone().unwrap().format)
+                        .write_to(print_stream)
+                        .unwrap();
+                    write!(
+                        print_stream,
+                        "{}{} {}",
+                        self.character_set
+                            .horizontal_bar
+                            .to_string()
+                            .repeat(most_last_position),
+                        Reset.render(),
+                        ended_label.clone().unwrap().message
+                    )
+                    .unwrap();
+
+                    if ended_label.clone().unwrap().hint.is_some() {
+                        writeln!(print_stream, "").unwrap();
+
+                        self.write_line_number(print_stream, usize::MAX, max_number_of_digit, true);
+                        self.write_multi_line_label(
+                            print_stream,
+                            usize::MAX,
+                            &occupied_multiline_labels,
+                            None,
+                            self.character_set.vertical_bar,
+                        );
+
+                        write!(print_stream, "{}", " ".repeat(most_last_position)).unwrap();
+
+                        Style::new()
+                            .fg_color(Some(Color::Ansi(AnsiColor::BrightBlue)))
+                            .write_to(print_stream)
+                            .unwrap();
+                        write!(
+                            print_stream,
+                            "!hint: {}{}",
+                            ended_label.clone().unwrap().hint.clone().unwrap(),
+                            Reset.render()
+                        )
+                        .unwrap();
+                    }
+
+                    writeln!(print_stream, "").unwrap();
+                }
             }
 
             Style::new()
@@ -465,7 +529,7 @@ impl FileReportBuilder {
         &mut self,
         print_stream: &mut dyn std::io::Write,
         line_number: usize,
-        label_map: &LinkedHashMap<Label, bool>,
+        label_map: &HashMap<Label, bool>,
         terminated_label: Option<Label>,
         vertical_bar_variant: char,
     ) -> Option<Label> {
@@ -477,7 +541,7 @@ impl FileReportBuilder {
         let mut last_index = 0;
         let mut ended_label = None;
 
-        for i in 0..entries.len() {
+        for i in 0..=entries.len() {
             let label: Label = entries[i].0.clone();
 
             if entries[i].1 {
@@ -576,9 +640,9 @@ impl FileReportBuilder {
             .unwrap();
         write!(
             print_stream,
-            "{:width$}{}[",
-            "",
+            "{:>width$}{}[",
             self.character_set.left_top,
+            self.character_set.horizontal_bar,
             width = max_line_digit + 2
         )
         .unwrap();
@@ -595,7 +659,7 @@ impl FileReportBuilder {
             .fg_color(Some(Color::Ansi(AnsiColor::BrightBlack)))
             .write_to(print_stream)
             .unwrap();
-        write!(print_stream, "]{}\n", Reset.render()).unwrap();
+        writeln!(print_stream, "]{}", Reset.render()).unwrap();
     }
 
     fn insert_str(&self, string: &mut String, index: usize, value: &str) {
