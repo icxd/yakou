@@ -1,6 +1,6 @@
 use super::{
     char_set::{CharacterSet, UNICODE},
-    label::Label,
+    label::{self, Label},
     position::Position,
     report::{Report, ReportType},
     source::{Source, SOURCE_CACHE},
@@ -101,11 +101,9 @@ impl FileReportBuilder {
 
             let mut occupied_multiline_labels = HashMap::<Label, bool>::new();
             let segment = source.sub_list(
-                report.common_span.start_position.line,
+                report.common_span.start_position.line - 1,
                 report.common_span.end_position.line,
             );
-            dbg!(segment.clone());
-            dbg!(source.clone().lines);
 
             match report.report_type {
                 ReportType::Error => Style::new()
@@ -209,9 +207,9 @@ impl FileReportBuilder {
                         }
                     }
 
-                    if (label.span.start_position.line >= line.line_number - 1
+                    if (label.span.start_position.line >= line.line_number
                         && label.span.start_position.line <= line.line_number + 1)
-                        || (label.span.end_position.line >= line.line_number - 1
+                        || (label.span.end_position.line >= line.line_number
                             && label.span.end_position.line <= line.line_number + 1)
                     {
                         render_source = true;
@@ -541,16 +539,14 @@ impl FileReportBuilder {
         let mut last_index = 0;
         let mut ended_label = None;
 
-        for i in 0..=entries.len() {
-            let label: Label = entries[i].0.clone();
-
-            if entries[i].1 {
+        for (i, label) in entries.iter().enumerate() {
+            if label.1 {
                 Style::new()
-                    .fg_color(label.format)
+                    .fg_color(label.0.format)
                     .write_to(print_stream)
                     .unwrap();
 
-                if label.span.start_position.line == line_number {
+                if label.0.span.start_position.line == line_number {
                     write!(print_stream, "{}", self.character_set.left_top).unwrap();
                     write!(
                         print_stream,
@@ -564,7 +560,7 @@ impl FileReportBuilder {
                     write!(print_stream, "{}", self.character_set.right_arrow).unwrap();
                     should_print = false;
                     break;
-                } else if label.span.end_position.line == line_number {
+                } else if label.0.span.end_position.line == line_number {
                     write!(print_stream, "{}", self.character_set.left_cross).unwrap();
                     write!(
                         print_stream,
@@ -577,9 +573,10 @@ impl FileReportBuilder {
                     .unwrap();
                     write!(print_stream, "{}", self.character_set.right_arrow).unwrap();
                     should_print = false;
-                    ended_label = Some(label);
+                    ended_label = Some(label.0.clone());
                     break;
-                } else if terminated_label.is_some() && label == *terminated_label.as_ref().unwrap()
+                } else if terminated_label.is_some()
+                    && label.0 == *terminated_label.as_ref().unwrap()
                 {
                     write!(
                         print_stream,
