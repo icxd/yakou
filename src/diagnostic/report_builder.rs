@@ -141,7 +141,7 @@ impl FileReportBuilder {
             let mut render_source = false;
             let mut current_dominant_label: Option<Label> = None;
             for line in &segment {
-                let mut line_builder = String::new();
+                let mut line_builder = line.chars.clone();
                 let mut applied_labels: Vec<Option<Label>> = Vec::new();
                 let (mut inserted_length, mut most_last_position) = (0, line.length + 1);
                 render_source = false;
@@ -207,15 +207,23 @@ impl FileReportBuilder {
                         }
                     }
 
-                    if (label.span.start_position.line >= line.line_number
+                    if (label.span.start_position.line
+                        >= ((line.line_number as isize) - 1) as usize
                         && label.span.start_position.line <= line.line_number + 1)
-                        || (label.span.end_position.line >= line.line_number
+                        || (label.span.end_position.line
+                            >= ((line.line_number as isize) - 1) as usize
                             && label.span.end_position.line <= line.line_number + 1)
                     {
                         render_source = true;
                     }
                 }
 
+                // dbg!(
+                //     render_source,
+                //     previous_line_rendered,
+                //     line.line_number,
+                //     line.chars.clone()
+                // );
                 if !render_source {
                     if previous_line_rendered {
                         Style::new()
@@ -224,11 +232,10 @@ impl FileReportBuilder {
                             .unwrap();
                         write!(
                             print_stream,
-                            "{:width$}{}{}",
-                            "",
+                            "{} {} {}",
+                            " ".repeat(max_number_of_digit),
                             self.character_set.vertical_ellipsis,
                             Reset.render(),
-                            width = max_number_of_digit + 2,
                         )
                         .unwrap();
 
@@ -239,7 +246,7 @@ impl FileReportBuilder {
                             None,
                             self.character_set.vertical_ellipsis,
                         );
-                        writeln!(print_stream).unwrap();
+                        write!(print_stream, "\n").unwrap();
                         previous_line_rendered = false;
                     }
                     continue;
@@ -276,11 +283,11 @@ impl FileReportBuilder {
                         };
                         let space_length = label.span.start_position.column - inserted_length;
                         if space_length > 0 {
-                            write!(print_stream, "{:width$}", "", width = space_length).unwrap();
+                            write!(print_stream, "{}", " ".repeat(space_length)).unwrap();
                         }
 
                         let offset = label.span.offset();
-                        let mut underline_builder = String::new();
+                        let mut underline_builder = offset.to_string();
                         for k in 0..offset {
                             if offset / 2 == k {
                                 underline_builder.push(self.character_set.under_bar);
@@ -297,7 +304,7 @@ impl FileReportBuilder {
                         inserted_length += space_length + offset;
                     }
 
-                    writeln!(print_stream, "").unwrap();
+                    write!(print_stream, "\n").unwrap();
 
                     for j in 1..=applied_labels.len() * 2 {
                         self.write_line_number(print_stream, usize::MAX, max_number_of_digit, true);
@@ -487,6 +494,7 @@ impl FileReportBuilder {
                 Reset.render()
             )
             .unwrap();
+            print_stream.flush().unwrap();
         }
     }
 
@@ -504,7 +512,7 @@ impl FileReportBuilder {
         if is_virtual_line {
             write!(
                 print_stream,
-                "{:width$}{}",
+                "{:width$} {} ",
                 "",
                 self.character_set.vertical_bar_breaking,
                 width = max_line_digit
@@ -513,7 +521,7 @@ impl FileReportBuilder {
         } else {
             write!(
                 print_stream,
-                "{:width$}{}",
+                "{:width$} {} ",
                 line_number,
                 self.character_set.vertical_bar,
                 width = max_line_digit
@@ -680,6 +688,11 @@ impl FileReportBuilder {
 
     pub fn source_name(&mut self, source_name: String) -> FileReportBuilder {
         self.source_name = source_name;
+        self.clone()
+    }
+
+    pub fn character_set(&mut self, character_set: CharacterSet) -> FileReportBuilder {
+        self.character_set = character_set;
         self.clone()
     }
 }
